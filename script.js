@@ -1,56 +1,5 @@
-const questions = [
-  {
-    question: "What is the capital of France?",
-    answers: ["Paris", "Madrid", "Berlin", "Rome"],
-    correct: 0
-  },
-  {
-    question: "Which planet is known as the Red Planet?",
-    answers: ["Earth", "Saturn", "Mars", "Venus"],
-    correct: 2
-  },
-  {
-    question: "What is the boiling point of water?",
-    answers: ["90°C", "100°C", "110°C", "120°C"],
-    correct: 1
-  },
-  {
-    question: "Which ocean is the largest?",
-    answers: ["Atlantic", "Pacific", "Indian", "Arctic"],
-    correct: 1
-  },
-  {
-    question: "Who wrote 'Romeo and Juliet'?",
-    answers: ["Shakespeare", "Hemingway", "Dickens", "Orwell"],
-    correct: 0
-  },
-  {
-    question: "Which language is used to style web pages?",
-    answers: ["HTML", "CSS", "JavaScript", "Python"],
-    correct: 1
-  },
-  {
-    question: "What is the chemical symbol for Gold?",
-    answers: ["Ag", "Au", "Gd", "Go"],
-    correct: 1
-  },
-  {
-    question: "Which number is the smallest prime?",
-    answers: ["0", "1", "2", "3"],
-    correct: 2
-  },
-  {
-    question: "What year did World War II end?",
-    answers: ["1942", "1945", "1948", "1950"],
-    correct: 1
-  },
-  {
-    question: "Which continent is Egypt part of?",
-    answers: ["Asia", "Europe", "Africa", "South America"],
-    correct: 2
-  }
-];
-
+let stateCapitalData = [];
+let quizQuestions = [];
 let currentQuestionIndex = 0;
 let score = 0;
 
@@ -59,6 +8,54 @@ const answerButtons = document.getElementById("answer-buttons");
 const nextButton = document.getElementById("next-btn");
 const restartButton = document.getElementById("restart-btn");
 const feedback = document.getElementById("feedback");
+
+// Load CSV data
+fetch('states.csv')
+  .then(response => response.text())
+  .then(data => {
+    parseCSV(data);
+    generateQuizQuestions();
+    startQuiz();
+  });
+
+// Parse CSV
+function parseCSV(csv) {
+  const lines = csv.trim().split("\n");
+  lines.shift(); // remove header
+  stateCapitalData = lines.map(line => {
+    const [state, capital] = line.split(",");
+    return { state: state.trim(), capital: capital.trim() };
+  });
+}
+
+// Generate 10 quiz questions
+function generateQuizQuestions() {
+  const usedStates = new Set();
+
+  while (quizQuestions.length < 10) {
+    const index = Math.floor(Math.random() * stateCapitalData.length);
+    const stateEntry = stateCapitalData[index];
+    if (usedStates.has(stateEntry.state)) continue;
+
+    usedStates.add(stateEntry.state);
+    const correct = stateEntry.capital;
+
+    // Get 3 wrong capitals
+    const wrongAnswers = stateCapitalData
+      .filter(entry => entry.capital !== correct)
+      .sort(() => 0.5 - Math.random())
+      .slice(0, 3)
+      .map(entry => entry.capital);
+
+    const options = [...wrongAnswers, correct].sort(() => 0.5 - Math.random());
+
+    quizQuestions.push({
+      question: `What is the capital of ${stateEntry.state}?`,
+      answers: options,
+      correct: correct
+    });
+  }
+}
 
 function startQuiz() {
   currentQuestionIndex = 0;
@@ -71,14 +68,14 @@ function startQuiz() {
 
 function showQuestion() {
   resetState();
-  const current = questions[currentQuestionIndex];
+  const current = quizQuestions[currentQuestionIndex];
   questionElement.textContent = current.question;
 
-  current.answers.forEach((answer, index) => {
+  current.answers.forEach(answer => {
     const btn = document.createElement("button");
     btn.textContent = answer;
     btn.classList.add("btn");
-    btn.addEventListener("click", () => selectAnswer(index));
+    btn.addEventListener("click", () => selectAnswer(answer));
     answerButtons.appendChild(btn);
   });
 }
@@ -89,31 +86,31 @@ function resetState() {
   answerButtons.innerHTML = "";
 }
 
-function selectAnswer(selectedIndex) {
-  const correctIndex = questions[currentQuestionIndex].correct;
-  if (selectedIndex === correctIndex) {
+function selectAnswer(selectedAnswer) {
+  const correctAnswer = quizQuestions[currentQuestionIndex].correct;
+  if (selectedAnswer === correctAnswer) {
     feedback.textContent = "✅ Correct!";
     score++;
   } else {
-    feedback.textContent = "❌ Incorrect.";
+    feedback.textContent = `❌ Incorrect.`;
   }
 
-  Array.from(answerButtons.children).forEach((btn, index) => {
+  Array.from(answerButtons.children).forEach(btn => {
     btn.disabled = true;
-    if (index === correctIndex) {
+    if (btn.textContent === correctAnswer) {
       btn.style.backgroundColor = "#2ecc71";
-    } else if (index === selectedIndex) {
+    } else if (btn.textContent === selectedAnswer) {
       btn.style.backgroundColor = "#e74c3c";
     } else {
       btn.style.backgroundColor = "#bdc3c7";
     }
   });
 
-  if (currentQuestionIndex < questions.length - 1) {
+  if (currentQuestionIndex < quizQuestions.length - 1) {
     nextButton.style.display = "inline-block";
   } else {
     restartButton.style.display = "inline-block";
-    feedback.textContent += ` Final Score: ${score}/${questions.length}`;
+    feedback.textContent += ` Final Score: ${score}/${quizQuestions.length}`;
   }
 }
 
@@ -122,6 +119,8 @@ nextButton.addEventListener("click", () => {
   showQuestion();
 });
 
-restartButton.addEventListener("click", startQuiz);
-
-startQuiz();
+restartButton.addEventListener("click", () => {
+  quizQuestions = [];
+  generateQuizQuestions();
+  startQuiz();
+});
